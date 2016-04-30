@@ -15,7 +15,7 @@ public class FolderBean {
 
     public void setDir(String dir) {
         this.dir = dir;
-        int lastIndexOf = this.dir.indexOf("/");
+        int lastIndexOf = this.dir.lastIndexOf("/");
         this.name = this.dir.substring(lastIndexOf);
     }
 

@@ -2,7 +2,6 @@ package com.crown.imageloader;
 
 import android.app.ProgressDialog;
 import android.content.ContentResolver;
-import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
@@ -11,11 +10,10 @@ import android.os.Handler;
 import android.os.Message;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.BaseAdapter;
+import android.view.WindowManager;
 import android.widget.GridView;
+import android.widget.PopupWindow;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -30,10 +28,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+//import com.crown.imageloader.util.ImageLoader;
+
+//import com.crown.imageloader.util.ImageLoader;
+
 public class MainActivity extends AppCompatActivity {
 
     private GridView mGridView;
     private List<String> mImgs;
+    private ImageAdapter mImageAdapter;
+
     private RelativeLayout mBottomLy;
     private TextView mDirName;
     private TextView mDirCount;
@@ -47,15 +51,61 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int DATA_LOADED = 0x110;
 
+    private ListImageDirPopupWindow mDirPopupWindow;
+
     private Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
             if(msg.what == DATA_LOADED) {
                 mProgressDialog.dismiss();
                 dataToView();
+                initDirPopupWindow();
             }
         }
     };
+
+    private void initDirPopupWindow() {
+        mDirPopupWindow = new ListImageDirPopupWindow(this, mFolderBeans);
+        mDirPopupWindow.setOnDismissListener(new PopupWindow.OnDismissListener() {
+            @Override
+            public void onDismiss() {
+                lightOn();
+            }
+        });
+
+        mDirPopupWindow.setOnDirSelectedListener(new ListImageDirPopupWindow.OnDirSelectedListener() {
+            @Override
+            public void onSelected(FolderBean folderBean) {
+                mCurrentDir = new File(folderBean.getDir());
+                mImgs = Arrays.asList(mCurrentDir.list(new FilenameFilter() {
+                    @Override
+                    public boolean accept(File dir, String filename) {
+                        if (filename.endsWith(".jpg")
+                                || filename.endsWith(".jpeg")
+                                || filename.endsWith(".png"))
+                            return true;
+                        return false;
+                    }
+                }));
+                mImageAdapter = new ImageAdapter(MainActivity.this, mImgs, mCurrentDir.getAbsolutePath());
+                mGridView.setAdapter(mImageAdapter);
+
+                mDirCount.setText(mImgs.size() + "");
+                mDirName.setText(folderBean.getName());
+
+                mDirPopupWindow.dismiss();
+            }
+        });
+    }
+
+    /**
+     * 内容区域变亮
+     */
+    private void lightOn() {
+        WindowManager.LayoutParams lp = getWindow().getAttributes();
+        lp.alpha = 1.0f;
+        getWindow().setAttributes(lp);
+    }
 
     private void dataToView() {
         if(mCurrentDir == null) {
@@ -63,6 +113,11 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         mImgs = Arrays.asList(mCurrentDir.list());
+
+        mImageAdapter =  new ImageAdapter(this, mImgs, mCurrentDir.getAbsolutePath());
+        mGridView.setAdapter(mImageAdapter);
+        mDirCount.setText(mMaxCount + "");
+        mDirName.setText(mCurrentDir.getName());
     }
 
     @Override
@@ -76,13 +131,31 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initEvent() {
+        mBottomLy.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+//                mDirPopupWindow.setAnimationStyle();
+                mDirPopupWindow.setAnimationStyle(R.style.dir_popupwindow_anim);
+                mDirPopupWindow.showAsDropDown(mBottomLy, 0, 0);
+
+                lightOff();
+            }
+        });
+    }
+
+    //内容区域变暗
+    private void lightOff() {
+        WindowManager.LayoutParams lp = getWindow().getAttributes();
+        lp.alpha = .3f;
+        getWindow().setAttributes(lp);
     }
 
     /**
      * 利用content provider扫描手机中的所有图片
      */
     private void initDatas() {
-        if(!Environment.getExternalStorageDirectory().equals(Environment.MEDIA_MOUNTED)) {
+        if(!Environment.getExternalStorageState().equals(
+                Environment.MEDIA_MOUNTED)) {
             Toast.makeText(this, "当前存储卡不可用", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -151,40 +224,6 @@ public class MainActivity extends AppCompatActivity {
         mBottomLy = (RelativeLayout) findViewById(R.id.id_bottom_ly);
         mDirName = (TextView) findViewById(R.id.id_dir_name);
         mDirCount = (TextView) findViewById(R.id.id_dir_count);
-    }
-
-
-    private class ImgAdapter extends BaseAdapter {
-
-        private String mDirpath;
-        private List<String> mImgPaths;
-        private LayoutInflater mInflater;
-
-        public ImgAdapter(Context context, List<String> mDatas, String dirPath) {
-            this.mDirpath = dirPath;
-            this.mImgPaths = mDatas;
-            mInflater = LayoutInflater.from(context);
-        }
-        @Override
-        public int getCount() {
-            return mImgPaths.size();
-        }
-
-        @Override
-        public Object getItem(int position) {
-            return mImgPaths.get(position);
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return position;
-        }
-
-        @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            //TODO:
-            return null;
-        }
     }
 
 }
